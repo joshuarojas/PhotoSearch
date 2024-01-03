@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">PhotoSearch</string>
+
+    <string name="initial_grid_title">Trending NOW on Flickr</string>
+    <string name="grid_search">Search Results for %s</string>
+    <string name="grid_search_empty">No Results found for %s</string>
+    <string name="grid_search_error">Something wrong happened</string>
+</resources>
