@@ -10,6 +10,7 @@ interface FlikrAPI {
     @GET("feeds/photos_public.gne")
     suspend fun getFeedByQuery(
         @Query("format") format: String = "json",
-        @Query("tags") query: String = ""
+        @Query("tagmode") mode: String = "any",
+        @Query("tags") query: String = "",
     ): Response<FlickrResponse>
 }

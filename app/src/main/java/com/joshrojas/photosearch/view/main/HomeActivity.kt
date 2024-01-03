@@ -9,28 +9,39 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.foundation.lazy.grid.TvGridCells
 import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.grid.items
@@ -56,7 +67,6 @@ class MainActivity : ComponentActivity() {
 
         val repository = FlickrRepository(RemoteBuilder.createFilckrAPI())
         val viewModel by viewModels<HomeViewModel> { HomeViewModelFactory(repository) }
-        viewModel.fetchFeed()
 
         setContent {
             PhotoSearchTheme {
@@ -70,6 +80,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        viewModel.fetchFeed()
     }
 }
 
@@ -85,16 +97,24 @@ fun MainScreen(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
 
 @Composable
 fun Search(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
-    val searchState = viewModel.searchState.collectAsState()
+    val searchState = viewModel.searchState.collectAsStateWithLifecycle()
+
+    val searchFocusRequester = remember { FocusRequester() }
 
     with(searchState.value) {
         Search(
             isSearching = isSearching,
+            searchQuery = searchQuery,
+            searchFocusRequester = searchFocusRequester,
             updateSearchState = {
-                viewModel.startSearch()
+                if (isSearching.not()) {
+                    viewModel.startSearch()
+                } else {
+                    searchFocusRequester.requestFocus()
+                }
             },
             updateSearchQuery = {
-                viewModel.updateSearch(it)
+                viewModel.updateSearchQuery(it)
             },
             modifier = modifier
         )
@@ -105,32 +125,70 @@ fun Search(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
 @Composable
 fun Search(
     isSearching: Boolean,
+    searchQuery: String,
+    searchFocusRequester: FocusRequester,
     updateSearchState: () -> Unit,
     updateSearchQuery: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    IconButton(
-        modifier = modifier.background(Color.Cyan, CircleShape),
-        onClick = updateSearchState
-    ) {
-        Icon(Icons.Filled.Search, contentDescription = "search icon")
+    val searchIconFocusRequester = remember { FocusRequester() }
+
+    Row {
+        IconButton(
+            modifier = modifier
+                .padding(start = 10.dp)
+                .background(Color.Cyan, CircleShape)
+                .focusRequester(searchIconFocusRequester),
+            onClick = {
+                updateSearchState()
+            }
+        ) {
+            Icon(Icons.Filled.Search, contentDescription = "search icon")
+        }
+
+        LaunchedEffect(Unit) {
+            searchIconFocusRequester.requestFocus()
+        }
+
         if (isSearching) {
             BasicTextField(
-                value = "",
+                modifier = modifier
+                    .align(Alignment.CenterVertically)
+                    .focusRequester(searchFocusRequester),
+                value = searchQuery,
+                singleLine = true,
                 onValueChange = updateSearchQuery,
+                cursorBrush = SolidColor(Color.White),
+                textStyle = MaterialTheme.typography.titleLarge.copy(color = Color.White),
                 keyboardOptions = KeyboardOptions(
                     autoCorrect = false,
                     imeAction = ImeAction.Search
                 ),
-            )
+                keyboardActions = KeyboardActions(onSearch = {
+                    updateSearchQuery(searchQuery)
+                }),
+            ) {
+                Box(modifier = Modifier.padding(start = 20.dp)) {
+                    it()
+                    if (searchQuery.isEmpty()) {
+                        Text(
+                            modifier = Modifier.graphicsLayer { alpha = 0.6f },
+                            text = stringResource(R.string.search_hint),
+                            style = MaterialTheme.typography.titleLarge.copy(color = Color.White)
+                        )
+                    }
+                }
+            }
+
+            LaunchedEffect(Unit) { searchFocusRequester.requestFocus() }
         }
     }
 }
 
 @Composable
 fun GridTitle(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
-    val searchState = viewModel.searchState.collectAsState()
-    val homeState = viewModel.homeState.collectAsState()
+    val searchState = viewModel.searchState.collectAsStateWithLifecycle()
+    val homeState = viewModel.homeState.collectAsStateWithLifecycle()
 
     with(homeState.value) {
         GridTitle(
@@ -163,85 +221,102 @@ fun GridTitle(
     }
 
     Text(
-        modifier = modifier.padding(vertical = 20.dp),
+        modifier = modifier
+            .padding(top = 10.dp, start = 10.dp, bottom = 10.dp, end = 20.dp)
+            .fillMaxWidth(),
         text = title,
-        style = MaterialTheme.typography.titleLarge
+        style = MaterialTheme.typography.titleLarge,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
     )
 }
 
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun PhotoGrid(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
-    val result = viewModel.homeState.collectAsState()
+    val result = viewModel.homeState.collectAsStateWithLifecycle()
 
     with(result.value) {
-        PhotoGrid(isLoading = isLoading, data = data, modifier = modifier)
+        if (isLoading.not()) {
+            PhotoGrid(data = data, modifier = modifier)
+        } else {
+            Text(
+                text = stringResource(id = R.string.grid_search_loading),
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+                modifier = modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun PhotoGrid(isLoading: Boolean, data: List<ItemResponse>, modifier: Modifier = Modifier) {
-    if (isLoading.not()) {
-        TvLazyVerticalGrid(
-            modifier = modifier,
-            columns = TvGridCells.Fixed(3),
-            contentPadding = PaddingValues(10.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-            horizontalArrangement = Arrangement.spacedBy(15.dp),
-            content = {
-                items(data) {
-                    Card(
+fun PhotoGrid(data: List<ItemResponse>, modifier: Modifier = Modifier) {
+    TvLazyVerticalGrid(
+        modifier = modifier,
+        columns = TvGridCells.Fixed(3),
+        contentPadding = PaddingValues(10.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(15.dp),
+        content = {
+            items(data) {
+                Card(
+                    modifier = modifier
+                        .fillMaxWidth()
+                        .background(Color.Transparent)
+                        .height(160.dp),
+                    onClick = { }
+                ) {
+                    Box(
                         modifier = modifier
                             .fillMaxWidth()
-                            .background(Color.Transparent),
-                        onClick = { }
+                            .background(Color.Cyan)
                     ) {
-                        Box(
+                        AsyncImage(
+                            model = it.media?.m,
+                            contentDescription = "${it.title} photo",
+                            placeholder = painterResource(id = R.drawable.empty_placeholder),
+                            error = painterResource(id = R.drawable.empty_placeholder),
+                            contentScale = ContentScale.Crop,
                             modifier = modifier
                                 .fillMaxWidth()
-                                .background(Color.Cyan)
-                        ) {
-                            AsyncImage(
-                                model = it,
-                                contentDescription = "${it.title} photo",
-                                placeholder = painterResource(id = R.drawable.empty_placeholder),
-                                error = painterResource(id = R.drawable.empty_placeholder),
-                                contentScale = ContentScale.Crop,
-                                modifier = modifier
-                                    .fillMaxWidth()
-                                    .height(160.dp),
-                            )
-                            Column(
-                                modifier = modifier
-                                    .align(Alignment.BottomStart)
-                                    .fillMaxWidth()
-                                    .background(
-                                        brush = Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                Color.Black
-                                            )
+                                .fillMaxHeight(),
+                        )
+                        Column(
+                            modifier = modifier
+                                .align(Alignment.BottomStart)
+                                .fillMaxWidth()
+                                .background(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            Color.Black
                                         )
                                     )
-                                    .padding(8.dp)
-                            ) {
-                                Text(
-                                    text = it.title.orEmpty(),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = Color.White
                                 )
-                                Text(
-                                    text = "${it.author?.nickname} | ${it.dateTaken}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White
-                                )
-                            }
+                                .padding(8.dp)
+                        ) {
+                            Text(
+                                text = it.title.orEmpty(),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "${it.author?.nickname} | ${it.dateTaken}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
             }
-        )
-    }
+        }
+    )
 }
 
 @Preview(showBackground = true)
@@ -249,7 +324,6 @@ fun PhotoGrid(isLoading: Boolean, data: List<ItemResponse>, modifier: Modifier =
 fun PhotoGridPreview() {
     PhotoSearchTheme {
         PhotoGrid(
-            isLoading = false,
             data = listOf(
                 ItemResponse(
                     "Photo Title",

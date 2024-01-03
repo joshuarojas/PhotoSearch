@@ -14,7 +14,7 @@ class FlickrRepository(
     private val coroutineContext: CoroutineContext = Dispatchers.IO
 ) {
 
-    suspend fun getFeedByQuery(query: String): Flow<List<ItemResponse>> = flow {
+    suspend fun getFeedByQuery(query: String = ""): Flow<List<ItemResponse>> = flow {
         val response = api.getFeedByQuery(query = query)
         if (response.isSuccessful) {
             response.body()?.let { emit(it.items) } ?: run { throw HttpException(response) }
