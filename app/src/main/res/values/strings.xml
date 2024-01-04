@@ -2,8 +2,8 @@
     <string name="app_name">PhotoSearch</string>
 
     <string name="initial_grid_title">Trending NOW on Flickr</string>
-    <string name="grid_search">Search Results for %s</string>
-    <string name="grid_search_empty">No Results found for %s</string>
+    <string name="grid_search">Search Results for \'%s\'</string>
+    <string name="grid_search_empty">No Results found for \'%s\'</string>
     <string name="grid_search_error">Something wrong happened</string>
     <string name="grid_search_loading">Loading…</string>
     <string name="search_hint">Insert a keyword to start searching</string>

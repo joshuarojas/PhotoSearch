@@ -9,7 +9,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-
+import java.util.concurrent.TimeUnit
 
 object RemoteBuilder {
 
@@ -17,19 +17,23 @@ object RemoteBuilder {
     private var retrofit: Retrofit? = null
 
     private fun getRetrofitInstance(): Retrofit {
-        val gson = GsonBuilder()
-            .setLenient()
-            .setDateFormat("yyy-MM-dd'T'HH:mm:ss'Z'")
-            .registerTypeAdapter(AuthorResponse::class.java, AuthorTypeAdapter())
-            .create()
-
         if (client == null) {
             client = OkHttpClient.Builder()
-                .addInterceptor(HttpLoggingInterceptor().apply { level = RemoteHelper.loggingLevel })
+                .addInterceptor(HttpLoggingInterceptor().apply {
+                    level = RemoteHelper.loggingLevel
+                })
                 .addInterceptor(FlickrResponseInterceptor())
+                .connectTimeout(3, TimeUnit.SECONDS)
+                .readTimeout(3, TimeUnit.SECONDS)
                 .build()
         }
         if (retrofit == null) {
+            val gson = GsonBuilder()
+                .setLenient()
+                .setDateFormat("yyy-MM-dd'T'HH:mm:ss'Z'")
+                .registerTypeAdapter(AuthorResponse::class.java, AuthorTypeAdapter())
+                .create()
+
             retrofit = Retrofit.Builder()
                 .baseUrl("https://www.flickr.com/services/")
                 .addConverterFactory(GsonConverterFactory.create(gson))

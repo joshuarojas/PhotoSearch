@@ -4,6 +4,7 @@ import com.google.gson.annotations.SerializedName
 import java.util.Date
 
 data class ItemResponse(
+    val id: Long = System.nanoTime(),
     @SerializedName("title") val title: String? = null,
     @SerializedName("link") val link: String? = null,
     @SerializedName("media") val media: MediaResponse? = null,
