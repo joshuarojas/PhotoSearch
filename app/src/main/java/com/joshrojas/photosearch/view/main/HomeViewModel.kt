@@ -46,11 +46,6 @@ class HomeViewModel(private val repository: FlickrRepository) : ViewModel() {
             .distinctUntilChanged()
             .onStart { emit(UIEvent.SearchUpdate("")) }
 
-        val hasResultsFlow = uiEventState
-            .filterIsInstance<UIEvent.SearchPopulated>()
-            .distinctUntilChanged()
-            .onStart { emit(UIEvent.SearchPopulated(false)) }
-
         val hasErrorFlow = MutableStateFlow(false)
 
         itemsState = searchUpdateFlow
@@ -65,14 +60,12 @@ class HomeViewModel(private val repository: FlickrRepository) : ViewModel() {
         homeState = combine(
             searchStartedFlow,
             searchUpdateFlow,
-            hasErrorFlow,
-            hasResultsFlow
-        ) { searchStarted, searchQuery, hasError, hasResults ->
+            hasErrorFlow
+        ) { searchStarted, searchQuery, hasError->
             HomeState(
                 searchQuery = searchQuery.query,
                 isSearching = searchStarted.isStarted,
                 hasError = hasError,
-                hasData = hasResults.hasItems
             )
         }.stateIn(
             scope = viewModelScope,
@@ -96,11 +89,9 @@ data class HomeState(
     val searchQuery: String = "",
     val isSearching: Boolean = false,
     val hasError: Boolean = false,
-    val hasData: Boolean = false,
 )
 
 sealed class UIEvent {
     data class SearchStarted(val isStarted: Boolean) : UIEvent()
     data class SearchUpdate(val query: String) : UIEvent()
-    data class SearchPopulated(val hasItems: Boolean) : UIEvent()
 }

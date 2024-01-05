@@ -143,11 +143,12 @@ fun SearchHeader(
 @Composable
 fun SearchTitle(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
     val homeState by viewModel.homeState.collectAsStateWithLifecycle()
+    val data = viewModel.itemsState.collectAsLazyPagingItems()
 
     SearchTitle(
         searchQuery = homeState.searchQuery,
         hasError = homeState.hasError,
-        hasResults = homeState.hasData,
+        hasResults = data.itemCount > 0,
         modifier = modifier
     )
 }
