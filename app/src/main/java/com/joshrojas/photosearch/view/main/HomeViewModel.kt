@@ -6,69 +6,101 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.joshrojas.photosearch.data.remote.response.ItemResponse
 import com.joshrojas.photosearch.data.repository.FlickrRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(private val repository: FlickrRepository) : ViewModel() {
 
-    private val _homeState = MutableStateFlow(HomeState())
-    val homeState = _homeState.asStateFlow()
+    private val _voiceRecognitionState = MutableStateFlow(false)
+    val voiceRecognition = _voiceRecognitionState.asStateFlow()
 
-    private val _searchState = MutableStateFlow(SearchState())
-    val searchState = _searchState.asStateFlow()
+    val homeState: StateFlow<HomeState>
+    val itemsState: Flow<PagingData<ItemResponse>>
 
-    private val _itemsState = MutableStateFlow<PagingData<ItemResponse>>(PagingData.empty())
-    val itemsState = _itemsState.asStateFlow()
+    val action: (UIEvent) -> Unit
 
-    private val _voiceSearchEnabled = MutableStateFlow(true)
-    val voiceSearchEnabled = _voiceSearchEnabled.asStateFlow()
+    init {
+        val uiEventState = MutableSharedFlow<UIEvent>()
 
-    fun fetchFeed() {
-        viewModelScope.launch {
-            repository.getFeedByQuery()
-                .cachedIn(viewModelScope)
-                .catch { _homeState.emit(HomeState(isLoading = false, error = it)) }
-                .collect {
-                    _homeState.emit(HomeState(isLoading = false))
-                    _itemsState.emit(it)
-                }
+        val searchStartedFlow = uiEventState
+            .filterIsInstance<UIEvent.SearchStarted>()
+            .distinctUntilChanged()
+            .onStart { emit(UIEvent.SearchStarted(false)) }
+
+        val searchUpdateFlow = uiEventState
+            .filterIsInstance<UIEvent.SearchUpdate>()
+            .distinctUntilChanged()
+            .onStart { emit(UIEvent.SearchUpdate("")) }
+
+        val hasResultsFlow = uiEventState
+            .filterIsInstance<UIEvent.SearchPopulated>()
+            .distinctUntilChanged()
+            .onStart { emit(UIEvent.SearchPopulated(false)) }
+
+        val hasErrorFlow = MutableStateFlow(false)
+
+        itemsState = searchUpdateFlow
+            .flatMapLatest {
+                repository
+                    .getFeedByQuery(it.query)
+                    .catch { hasErrorFlow.emit(true) }
+            }
+            .cachedIn(viewModelScope)
+
+
+        homeState = combine(
+            searchStartedFlow,
+            searchUpdateFlow,
+            hasErrorFlow,
+            hasResultsFlow
+        ) { searchStarted, searchQuery, hasError, hasResults ->
+            HomeState(
+                searchQuery = searchQuery.query,
+                isSearching = searchStarted.isStarted,
+                hasError = hasError,
+                hasData = hasResults.hasItems
+            )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = HomeState()
+        )
+
+        action = { event: UIEvent ->
+            viewModelScope.launch { uiEventState.emit(event) }
         }
     }
 
-    fun updateSearchQuery(searchQuery: String) {
+    fun updateVoiceRecognitionState(isEnabled: Boolean) {
         viewModelScope.launch {
-            _searchState.emit(_searchState.value.copy(searchQuery = searchQuery))
-            repository.getFeedByQuery(searchQuery.replace(" ", ","))
-                .cachedIn(viewModelScope)
-                .catch { _homeState.emit(HomeState(isLoading = false, error = it)) }
-                .collect {
-                    _homeState.emit(HomeState(isLoading = false))
-                    _itemsState.emit(it)
-                }
-        }
-    }
-
-    fun startSearch() {
-        viewModelScope.launch {
-            _searchState.emit(_searchState.value.copy(isSearchBoxShown = true))
-        }
-    }
-
-    fun isVoiceSearchEnabled(isEnabled: Boolean) {
-        viewModelScope.launch {
-            _voiceSearchEnabled.emit(isEnabled)
+            _voiceRecognitionState.emit(isEnabled)
         }
     }
 }
 
-data class SearchState(
-    val isSearchBoxShown: Boolean = false,
+data class HomeState(
     val searchQuery: String = "",
+    val isSearching: Boolean = false,
+    val hasError: Boolean = false,
+    val hasData: Boolean = false,
 )
 
-data class HomeState(
-    val isLoading: Boolean = true,
-    val error: Throwable? = null
-)
+sealed class UIEvent {
+    data class SearchStarted(val isStarted: Boolean) : UIEvent()
+    data class SearchUpdate(val query: String) : UIEvent()
+    data class SearchPopulated(val hasItems: Boolean) : UIEvent()
+}
