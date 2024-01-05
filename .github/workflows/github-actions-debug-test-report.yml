@@ -1,6 +1,10 @@
 name: Debug Test Report
-run-name: Running a Test Report
+run-name: Running a Debug Test Report
 on: [ pull_request, workflow_dispatch ]
+permissions:
+  contents: read
+  actions: read
+  checks: write
 jobs:
   Run-Test:
     if: github.event.pull_request.draft == false
