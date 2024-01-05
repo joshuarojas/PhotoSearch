@@ -5,7 +5,7 @@ import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Query
 
-interface FlikrAPI {
+interface FlickrAPI {
 
     @GET("feeds/photos_public.gne")
     suspend fun getFeedByQuery(

@@ -64,9 +64,7 @@ class VoiceToTextParser(private val context: Context) : RecognitionListener {
     }
 
     override fun onError(error: Int) {
-        if (error != SpeechRecognizer.ERROR_CLIENT) {
-            _state.update { it.copy(error = "Error: $error") }
-        }
+        _state.update { it.copy(error = "Error: $error", isSpeaking = false, hasStarted = false) }
     }
 
     override fun onResults(results: Bundle?) {

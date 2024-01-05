@@ -43,5 +43,5 @@ object RemoteBuilder {
         return retrofit!!
     }
 
-    fun createFilckrAPI(): FlikrAPI = getRetrofitInstance().create(FlikrAPI::class.java)
+    fun createFilckrAPI(): FlickrAPI = getRetrofitInstance().create(FlickrAPI::class.java)
 }
