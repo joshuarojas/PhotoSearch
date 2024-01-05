@@ -15,11 +15,8 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Build
-        run: mvn --batch-mode -DskipTests package
-
-      - name: Test
-        run: mvn --batch-mode -Dmaven.test.failure.ignore=true test
+      - name: Run Debug Unit Tests
+        run: ./gradlew testDebugUnitTest
 
       - name: Report
         uses: dorny/test-reporter@v1
