@@ -26,11 +26,11 @@ jobs:
       - name: Run Debug Unit Tests
         run: ./gradlew test
 
-      - name: Debug Report
+      - name: Release Report Result
         uses: dorny/test-reporter@v1
         if: always()
         with:
-          name: Debug JUnit Tests Result
-          path: './app/build/test-results/testDebugUnitTest/TEST-*Test.xml'
+          name: Release JUnit Tests Result
+          path: './app/build/test-results/testReleaseUnitTest/TEST-*Test.xml'
           reporter: java-junit
           fail-on-error: true

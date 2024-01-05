@@ -25,7 +25,7 @@ jobs:
       - name: Run Debug Unit Tests
         run: ./gradlew test
 
-      - name: Debug Report
+      - name: Debug Report Result
         uses: dorny/test-reporter@v1
         if: always()
         with:
