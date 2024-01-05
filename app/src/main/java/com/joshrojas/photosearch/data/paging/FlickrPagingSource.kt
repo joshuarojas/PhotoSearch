@@ -2,7 +2,7 @@ package com.joshrojas.photosearch.data.paging
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
-import com.joshrojas.photosearch.data.remote.FlikrAPI
+import com.joshrojas.photosearch.data.remote.FlickrAPI
 import com.joshrojas.photosearch.data.remote.response.ItemResponse
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -11,7 +11,7 @@ import retrofit2.HttpException
 
 class FlickrPagingSource(
     private val search: String,
-    private val api: FlikrAPI,
+    private val api: FlickrAPI,
     private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : PagingSource<Int, ItemResponse>() {
     override fun getRefreshKey(state: PagingState<Int, ItemResponse>): Int? {

@@ -9,5 +9,5 @@ data class FlickrResponse(
     @SerializedName("description") val description: String? = null,
     @SerializedName("modified") val modified: Date? = null,
     @SerializedName("generator") val generator: String? = null,
-    @SerializedName("items") val items: ArrayList<ItemResponse> = arrayListOf()
+    @SerializedName("items") val items: List<ItemResponse> = arrayListOf()
 )
