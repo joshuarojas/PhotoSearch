@@ -18,15 +18,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Text
 import com.joshrojas.photosearch.R
 import com.joshrojas.photosearch.data.remote.response.ItemResponse
 import com.joshrojas.photosearch.view.component.CroppedImage
@@ -47,17 +44,21 @@ fun HomeScreen(
 ) {
     val recordAudioLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-        onResult = viewModel::isVoiceSearchEnabled
+        onResult = viewModel::updateVoiceRecognitionState
     )
 
     LaunchedEffect(key1 = recordAudioLauncher, block = {
         recordAudioLauncher.launch(Manifest.permission.RECORD_AUDIO)
     })
 
-    Column(modifier = modifier.padding(20.dp)) {
+    Column(
+        modifier = modifier
+            .padding(horizontal = 20.dp)
+            .padding(top = 20.dp)
+    ) {
         SearchHeader(viewModel, voiceToTextParser, modifier)
-        GridTitle(viewModel, modifier)
-        PhotoGrid(viewModel, modifier)
+        SearchTitle(viewModel, modifier)
+        SearchResults(viewModel, modifier)
     }
 }
 
@@ -67,35 +68,37 @@ fun SearchHeader(
     voiceToTextParser: VoiceToTextParser,
     modifier: Modifier = Modifier
 ) {
-    val searchState by viewModel.searchState.collectAsStateWithLifecycle()
+    val homeState by viewModel.homeState.collectAsStateWithLifecycle()
     val parserState by voiceToTextParser.state.collectAsStateWithLifecycle()
-    val isVoiceEnabled by viewModel.voiceSearchEnabled.collectAsStateWithLifecycle()
+    val voiceRecognitionState by viewModel.voiceRecognition.collectAsStateWithLifecycle()
 
     val searchFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(parserState.spokenText) {
         if (parserState.isSpeaking.not() && parserState.hasStarted) {
             voiceToTextParser.stop()
-            viewModel.updateSearchQuery(parserState.spokenText)
+            viewModel.action(UIEvent.SearchUpdate(parserState.spokenText))
         }
     }
 
-    with(searchState) {
+    with(homeState) {
         SearchHeader(
-            isSearching = isSearchBoxShown,
+            isSearching = isSearching,
             isListening = parserState.isSpeaking,
             searchQuery = searchQuery,
             searchFieldFocusRequester = searchFocusRequester,
             searchButtonClick = {
-                if (isSearchBoxShown.not()) {
-                    viewModel.startSearch()
-                } else if (isVoiceEnabled) {
+                if (isSearching.not()) {
+                    viewModel.action(UIEvent.SearchStarted(true))
+                } else if (voiceRecognitionState) {
                     voiceToTextParser.start()
                 } else {
                     searchFocusRequester.requestFocus()
                 }
             },
-            updateSearchQuery = viewModel::updateSearchQuery,
+            updateSearchQuery = {
+                viewModel.action(UIEvent.SearchUpdate(it))
+            },
             modifier = modifier
         )
     }
@@ -138,31 +141,30 @@ fun SearchHeader(
 }
 
 @Composable
-fun GridTitle(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
-    val searchState by viewModel.searchState.collectAsStateWithLifecycle()
+fun SearchTitle(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
     val homeState by viewModel.homeState.collectAsStateWithLifecycle()
-    val itemState = viewModel.itemsState.collectAsLazyPagingItems()
+    val data = viewModel.itemsState.collectAsLazyPagingItems()
 
-    GridTitle(
-        searchQuery = searchState.searchQuery,
-        hasError = homeState.error != null,
-        hasResult = itemState.itemCount > 0,
+    SearchTitle(
+        searchQuery = homeState.searchQuery,
+        hasError = homeState.hasError,
+        hasResults = data.itemCount > 0,
         modifier = modifier
     )
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun GridTitle(
+fun SearchTitle(
     searchQuery: String,
     hasError: Boolean,
-    hasResult: Boolean,
+    hasResults: Boolean,
     modifier: Modifier = Modifier
 ) {
     val title = if (hasError) {
         stringResource(R.string.grid_search_error)
     } else if (searchQuery.isNotEmpty()) {
-        if (hasResult) {
+        if (hasResults) {
             stringResource(R.string.grid_search, searchQuery)
         } else {
             stringResource(R.string.grid_search_empty, searchQuery)
@@ -178,27 +180,10 @@ fun GridTitle(
     )
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun PhotoGrid(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
-    val homeState by viewModel.homeState.collectAsStateWithLifecycle()
-    val itemsState = viewModel.itemsState.collectAsLazyPagingItems()
+fun SearchResults(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
+    val data = viewModel.itemsState.collectAsLazyPagingItems()
 
-    if (homeState.isLoading.not()) {
-        PhotoGrid(data = itemsState, modifier = modifier)
-    } else {
-        Text(
-            text = stringResource(id = R.string.grid_search_loading),
-            style = MaterialTheme.typography.titleLarge,
-            textAlign = TextAlign.Center,
-            modifier = modifier.fillMaxWidth()
-        )
-    }
-
-}
-
-@Composable
-fun PhotoGrid(data: LazyPagingItems<ItemResponse>, modifier: Modifier = Modifier) {
     VerticalAlbum(modifier = modifier) {
         items(
             data.itemCount,

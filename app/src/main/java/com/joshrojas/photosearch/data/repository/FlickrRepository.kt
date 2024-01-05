@@ -18,7 +18,7 @@ class FlickrRepository(
 
     fun getFeedByQuery(query: String = ""): Flow<PagingData<ItemResponse>> =
         Pager(
-            config = PagingConfig(pageSize = 20),
+            config = PagingConfig(pageSize = 50),
             pagingSourceFactory = { FlickrPagingSource(query, api) }
         ).flow.flowOn(coroutineContext)
 }

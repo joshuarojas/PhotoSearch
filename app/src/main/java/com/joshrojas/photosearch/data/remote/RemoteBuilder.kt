@@ -23,8 +23,8 @@ object RemoteBuilder {
                     level = RemoteHelper.loggingLevel
                 })
                 .addInterceptor(FlickrResponseInterceptor())
-                .connectTimeout(3, TimeUnit.SECONDS)
-                .readTimeout(3, TimeUnit.SECONDS)
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(5, TimeUnit.SECONDS)
                 .build()
         }
         if (retrofit == null) {
