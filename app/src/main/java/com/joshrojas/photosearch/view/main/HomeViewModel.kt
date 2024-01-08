@@ -28,6 +28,9 @@ class HomeViewModel(private val repository: FlickrRepository) : ViewModel() {
     private val _voiceRecognitionState = MutableStateFlow(false)
     val voiceRecognition = _voiceRecognitionState.asStateFlow()
 
+    private val _focusedIndexState = MutableStateFlow(Pair(0, 0))
+    val focusedIndexState = _focusedIndexState.asStateFlow()
+
     val homeState: StateFlow<HomeState>
     val itemsState: Flow<PagingData<ItemResponse>>
 
@@ -56,12 +59,11 @@ class HomeViewModel(private val repository: FlickrRepository) : ViewModel() {
             }
             .cachedIn(viewModelScope)
 
-
         homeState = combine(
             searchStartedFlow,
             searchUpdateFlow,
             hasErrorFlow
-        ) { searchStarted, searchQuery, hasError->
+        ) { searchStarted, searchQuery, hasError ->
             HomeState(
                 searchQuery = searchQuery.query,
                 isSearching = searchStarted.isStarted,
@@ -81,6 +83,14 @@ class HomeViewModel(private val repository: FlickrRepository) : ViewModel() {
     fun updateVoiceRecognitionState(isEnabled: Boolean) {
         viewModelScope.launch {
             _voiceRecognitionState.emit(isEnabled)
+        }
+    }
+
+    fun updateFocusIndex(index: Int) {
+        viewModelScope.launch {
+            with(_focusedIndexState) {
+                emit(Pair(value.second, index))
+            }
         }
     }
 }

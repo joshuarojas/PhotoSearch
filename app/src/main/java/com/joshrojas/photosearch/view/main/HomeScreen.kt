@@ -12,9 +12,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -22,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
+import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import com.joshrojas.photosearch.R
@@ -35,11 +38,13 @@ import com.joshrojas.photosearch.view.component.TitleText
 import com.joshrojas.photosearch.view.component.VerticalAlbum
 import com.joshrojas.photosearch.view.util.VoiceToTextParser
 import com.joshrojas.photosearch.view.util.format
+import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
     voiceToTextParser: VoiceToTextParser,
+    navigateToDetail: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val recordAudioLauncher = rememberLauncherForActivityResult(
@@ -58,7 +63,7 @@ fun HomeScreen(
     ) {
         SearchHeader(viewModel, voiceToTextParser, modifier)
         SearchTitle(viewModel, modifier)
-        SearchResults(viewModel, modifier)
+        SearchResults(viewModel, navigateToDetail, modifier)
     }
 }
 
@@ -181,24 +186,60 @@ fun SearchTitle(
 }
 
 @Composable
-fun SearchResults(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
+fun SearchResults(
+    viewModel: HomeViewModel,
+    navigateToDetail: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val data = viewModel.itemsState.collectAsLazyPagingItems()
+    val index by viewModel.focusedIndexState.collectAsStateWithLifecycle()
 
-    VerticalAlbum(modifier = modifier) {
+    val gridState = rememberTvLazyGridState()
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(key1 = index.second, block = {
+        coroutineScope.launch {
+            gridState.scrollToItem(index.second)
+        }
+    })
+
+    VerticalAlbum(
+        state = gridState,
+        modifier = modifier
+    ) {
         items(
             data.itemCount,
             key = data.itemKey { it.id }
         ) { index ->
             val item = data[index]
-            item?.let { PhotoCard(item, modifier) }
+            item?.let {
+                PhotoCard(item, modifier) {
+                    viewModel.updateFocusIndex(index)
+                    navigateToDetail()
+                }
+            }
         }
     }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun PhotoCard(item: ItemResponse, modifier: Modifier = Modifier) {
-    ItemCard(modifier = modifier) {
+fun PhotoCard(
+    item: ItemResponse,
+    modifier: Modifier = Modifier,
+    navigateToDetail: () -> Unit
+) {
+    val itemFocus = remember { FocusRequester() }
+
+    LaunchedEffect(key1 = item.isFocused, block = {
+        if (item.isFocused)
+            itemFocus.requestFocus()
+    })
+
+    ItemCard(
+        onClick = navigateToDetail,
+        modifier = modifier.focusRequester(itemFocus)
+    ) {
         CroppedImage(
             image = item.media?.m.orEmpty(),
             imageCN = "${item.title} photo",

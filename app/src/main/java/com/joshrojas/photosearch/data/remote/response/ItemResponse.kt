@@ -5,6 +5,7 @@ import java.util.Date
 
 data class ItemResponse(
     val id: Long = System.nanoTime(),
+    var isFocused: Boolean =  false,
     @SerializedName("title") val title: String? = null,
     @SerializedName("link") val link: String? = null,
     @SerializedName("media") val media: MediaResponse? = null,

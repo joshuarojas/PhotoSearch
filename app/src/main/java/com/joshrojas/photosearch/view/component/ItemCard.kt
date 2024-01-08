@@ -20,6 +20,7 @@ import androidx.tv.material3.MaterialTheme
 @Composable
 fun ItemCard(
     modifier: Modifier = Modifier,
+    onClick: () -> Unit = { },
     content: @Composable BoxScope.() -> Unit
 ) {
     Card(
@@ -27,7 +28,7 @@ fun ItemCard(
             .fillMaxWidth()
             .background(Color.Transparent)
             .height(160.dp),
-        onClick = { }
+        onClick = onClick
     ) {
         Box(modifier = modifier.fillMaxWidth(), content = content)
     }
